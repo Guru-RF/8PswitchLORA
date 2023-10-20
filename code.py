@@ -47,14 +47,22 @@ rf8.direction = Direction.OUTPUT
 rf8.value = True
 time.sleep(0.25)
 
-rf8.value = False
-rf7.value = False
-rf6.value = False
-rf5.value = False
-rf4.value = False
-rf3.value = False
-rf2.value = False
-rf1.value = False
+if (config.DEFAULT is not 8):
+    rf8.value = False
+if (config.DEFAULT is not 7):
+    rf7.value = False
+if (config.DEFAULT is not 6):
+    rf6.value = False
+if (config.DEFAULT is not 5):
+    rf5.value = False
+if (config.DEFAULT is not 4):
+    rf4.value = False
+if (config.DEFAULT is not 3):
+    rf3.value = False
+if (config.DEFAULT is not 2):
+    rf2.value = False
+if (config.DEFAULT is not 1):
+    rf1.value = False
 
 # Lora Stuff
 RADIO_FREQ_MHZ = 868.000
