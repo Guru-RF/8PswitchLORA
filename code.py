@@ -5,64 +5,78 @@ from digitalio import DigitalInOut, Direction, Pull
 import adafruit_rfm9x
 import config
 
-print("Intializing µPico")
+def purple(data):
+  stamp = time.time()
+  return "\x1b[38;5;104m[" + str(stamp) + "] " + data + "\x1b[0m"
+
+def yellow(data):
+  return "\x1b[38;5;220m" + data + "\x1b[0m"
+
+def red(data):
+  return "\x1b[1;5;31m -- " + data + "\x1b[0m"
+
+# our version
+VERSION = "RF.Guru_8P_Switch_LoRa 0.1" 
 
 rf1 = DigitalInOut(board.GP23)
 rf1.direction = Direction.OUTPUT
 rf1.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
 rf2 = DigitalInOut(board.GP22)
 rf2.direction = Direction.OUTPUT
 rf2.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
 rf3 = DigitalInOut(board.GP14)
 rf3.direction = Direction.OUTPUT
 rf3.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
 rf4 = DigitalInOut(board.GP13)
 rf4.direction = Direction.OUTPUT
 rf4.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
-rf5 = DigitalInOut(board.GP0) # 23
+rf5 = DigitalInOut(board.GP0) 
 rf5.direction = Direction.OUTPUT
 rf5.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
-rf6 = DigitalInOut(board.GP1) # 22
+rf6 = DigitalInOut(board.GP1) 
 rf6.direction = Direction.OUTPUT
 rf6.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
-rf7 = DigitalInOut(board.GP2) # 14
+rf7 = DigitalInOut(board.GP2) 
 rf7.direction = Direction.OUTPUT
 rf7.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
-rf8 = DigitalInOut(board.GP3) # 13
+rf8 = DigitalInOut(board.GP3) 
 rf8.direction = Direction.OUTPUT
 rf8.value = True
-time.sleep(0.25)
+time.sleep(0.01)
 
-if (config.DEFAULT is not 8):
-    rf8.value = False
-if (config.DEFAULT is not 7):
-    rf7.value = False
-if (config.DEFAULT is not 6):
-    rf6.value = False
-if (config.DEFAULT is not 5):
-    rf5.value = False
-if (config.DEFAULT is not 4):
-    rf4.value = False
-if (config.DEFAULT is not 3):
-    rf3.value = False
-if (config.DEFAULT is not 2):
-    rf2.value = False
-if (config.DEFAULT is not 1):
-    rf1.value = False
+
+ports = {
+  "1": rf1,
+  "2": rf2,
+  "3": rf3,
+  "4": rf4,
+  "5": rf5,
+  "6": rf6,
+  "7": rf7,
+  "8": rf8,
+}
+
+for number, port in ports.items():
+    port.value = False
+    time.sleep(0.01)
+
+ports[str(int(config.default_port))].value = True
+
+print(red(config.name + " -=- " + VERSION))
 
 # Lora Stuff
 RADIO_FREQ_MHZ = 868.000
@@ -73,94 +87,26 @@ rfm9x = adafruit_rfm9x.RFM9x(spi, CS, RESET, RADIO_FREQ_MHZ, baudrate=1000000, a
 rfm9x.tx_power = 5
 
 while True:
-    print(f"loraRunner: Waiting for LoRa packet ...\r", end="")
+    msg = yellow("Waiting for LoRa packet ...")
+    print(f"{msg}\r", end="")
     packet = rfm9x.receive(with_header=True,timeout=10)
 
     if packet is not None:
-        print(packet)
+        #print(packet)
         if packet[:3] == (b'<\xaa\x01'):
                 rawdata = bytes(packet[3:]).decode('utf-8')
-                if rawdata.startswith(config.DEVICE):
-                    port = int(rawdata[-1])
-                    print(port)
-                    if port is 1:
-                        rf1.value = True
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = False
-                    
-                    if port is 2:
-                        rf1.value = False
-                        rf2.value = True
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = False
-                    
-                    if port is 3:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = True
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = False
-                    
-                    if port is 4:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = True
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = False
-
-                    if port is 5:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = True
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = False
-                    
-                    if port is 6:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = True
-                        rf7.value = False
-                        rf8.value = False
-                    
-                    if port is 7:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = True
-                        rf8.value = False
-                    
-                    if port is 8:
-                        rf1.value = False
-                        rf2.value = False
-                        rf3.value = False
-                        rf4.value = False
-                        rf5.value = False
-                        rf6.value = False
-                        rf7.value = False
-                        rf8.value = True
+                if rawdata.startswith(config.name):
+                    for number, port in ports.items():
+                        port.value = False
+                    try:
+                        ports[str(int(rawdata[-1]))].value = True
+                        print(purple("PORT REQ: Turned port " + str(int(rawdata[-1])) + " on"))
+                    except:
+                        print(purple("PORT REQ: Wrong Port NR Turned default port " + str(int(config.default_port)) + " on"))
+                        for number, port in ports.items():
+                            port.value = False
+                        ports[str(int(config.default_port))].value = True
+                else:
+                    print(yellow("Received another switch port req packet: " + str(rawdata)))
         else:
-            print("Unknown packet")
+            print(yellow("Received an unknown packet: " + str(packet)))
