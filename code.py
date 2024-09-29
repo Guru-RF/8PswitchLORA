@@ -744,16 +744,21 @@ while True:
                     ports[str(int(setport))].value = True
                     print(purple("PORT REQ: Turned port " + str(int(setport)) + " on"))
                 except:
-                    print(
-                        purple(
-                            "PORT REQ: Wrong Port NR Turned default port "
-                            + str(int(config.default_port))
-                            + " on"
+                    if setport == "0":
+                        att(0)
+                        for _number, port in ports.items():
+                            port.value = False
+                    else:
+                        for _number, port in ports.items():
+                            port.value = False
+                        ports[str(int(config.default_port))].value = True
+                        print(
+                            purple(
+                                "PORT REQ: Wrong Port NR Turned default port "
+                                + str(int(config.default_port))
+                                + " on"
+                            )
                         )
-                    )
-                    for _number, port in ports.items():
-                        port.value = False
-                    ports[str(int(config.default_port))].value = True
             else:
                 print(
                     yellow("Received another switch port req packet: " + str(rawdata))
