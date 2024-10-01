@@ -126,7 +126,13 @@ def round_to_half(num):
 
 def att(value):
     if value == "0.0":
-        attAct.value = False
+        attAct.value = True
+        att1.value = True
+        att2.value = True
+        att3.value = True
+        att4.value = True
+        att5.value = True
+        att6.value = True
     elif value == "0.5":
         attAct.value = True
         att1.value = True
@@ -723,8 +729,14 @@ while True:
         # print(packet)
         if packet[:3] == (b"<\xaa\x01"):
             rawdata = bytes(packet[3:]).decode("utf-8")
-            name, setport, strsetatt = rawdata.split("/", 3)
-            setatt = round_to_half(float(strsetatt))
+            try:
+                name, setport, strsetatt = rawdata.split("/", 3)
+                setatt = round_to_half(float(strsetatt))
+            except:
+                name = "unknown"
+                setport = "0"
+                setatt = "0"
+
             print(
                 purple(
                     "PORT REQ: Name: "
@@ -740,7 +752,17 @@ while True:
                 for _number, port in ports.items():
                     port.value = False
                 try:
-                    att(str(setatt))
+                    if setatt == 0:
+                        attAct.value = False
+                    elif setatt > 33:
+                        setatt = 33
+                        setatt = setatt-1.5
+                        att(str(setatt))
+                    elif setatt > 0:
+                        setatt = setatt-1.5
+                        if setatt < 0:
+                            setatt = 0 
+                        att(str(setatt))
                     ports[str(int(setport))].value = True
                     print(purple("PORT REQ: Turned port " + str(int(setport)) + " on"))
                 except:
