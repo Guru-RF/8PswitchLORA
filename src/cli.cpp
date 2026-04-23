@@ -154,14 +154,17 @@ static void exec(String line) {
         } else {
             Serial.println(F("all ports off"));
         }
+        savePersistentState(n, currentActiveAttDb());
     } else if (head == "att") {
         if (arg.length() == 0 || arg == "-") {
             attenuatorDisable();
             Serial.println(F("attenuator disabled"));
+            savePersistentState(currentActivePort(), -1.0f);
         } else {
             float db = arg.toFloat();
             attenuatorSet(db);
             Serial.printf("attenuator -> %.1f dB\r\n", db);
+            savePersistentState(currentActivePort(), db);
         }
     } else if (head == "freq") {
         double mhz = arg.toFloat();

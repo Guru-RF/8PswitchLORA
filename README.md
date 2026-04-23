@@ -17,7 +17,7 @@ Buy here [8-Port LoRa RF Switch (868 MHz)](https://shop.rf.guru/)
 
 ## 🧠 How it Works
 
-Power the device over USB-C. It boots, reads `/config.txt` off its internal flash, enables the configured default RF port, and then listens continuously for LoRa packets addressed to its configured `name`.
+Power the device over USB-C. It boots, reads `/config.txt` off its internal flash, restores the **last known port + attenuator state** (or falls back to `default_port` on first boot), and then listens continuously for LoRa packets addressed to its configured `name`.
 
 When a matching command arrives, the switch:
 
@@ -201,6 +201,7 @@ The *switching* itself is not affected by this — port changes happen in the ma
 
 - 8 RF ports switched by LoRa commands on 868 MHz
 - 6-bit step attenuator 0 – 31.5 dB in 0.5 dB steps, with insertion-loss compensation
+- **Non-volatile state**: last port + attenuator setting is stored in flash (EEPROM-emulated) and restored after power loss or reboot
 - AES-128 CBC encrypted command payload with PKCS#7 padding
 - Two modem profiles: `fast` (SF7, ~50 ms airtime) and `slow` (SF12, +10 dB range)
 - Plaintext ACK transmission for end-to-end command confirmation

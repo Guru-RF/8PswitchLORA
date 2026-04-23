@@ -20,3 +20,6 @@ extern volatile bool driveConnected;
 
 // defined in main.cpp
 void sendAck(const char *text);
+void savePersistentState(int port, float attDb);
+int   currentActivePort();    // 0 = none, 1..8
+float currentActiveAttDb();   // < 0 = attenuator disabled

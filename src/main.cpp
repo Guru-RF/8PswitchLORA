@@ -11,6 +11,7 @@
 #include <LoRa.h>
 #include <Crypto.h>
 #include <AES.h>
+#include <EEPROM.h>
 #include <hardware/watchdog.h>
 
 #include "pins.h"
@@ -268,6 +269,76 @@ static float roundToHalf(float v) {
 }
 
 // ============================================================
+// Persistent state (EEPROM emulation on internal flash)
+// Restores the last port + attenuator setting across power cycles.
+// Only committed when something actually changed, to minimize flash wear.
+// ============================================================
+
+#define STATE_MAGIC    0xA55A
+#define STATE_VERSION  1
+#define STATE_ADDR     0
+#define STATE_SIZE     8
+
+struct PersistentState {
+    uint16_t magic;    // STATE_MAGIC
+    uint8_t  version;  // STATE_VERSION
+    uint8_t  port;     // 0..8 (0 = all off)
+    uint16_t attX10;   // attenuation dB * 10, or 0xFFFF = attenuator disabled
+    uint8_t  reserved[2];
+};
+static_assert(sizeof(PersistentState) == STATE_SIZE,
+              "PersistentState layout must stay 8 bytes");
+
+static PersistentState savedState = { 0, 0, 0, 0xFFFF, {0, 0} };
+
+static bool loadPersistentState(PersistentState &out) {
+    uint8_t buf[STATE_SIZE];
+    for (int i = 0; i < STATE_SIZE; i++) buf[i] = EEPROM.read(STATE_ADDR + i);
+    memcpy(&out, buf, STATE_SIZE);
+    if (out.magic != STATE_MAGIC || out.version != STATE_VERSION) {
+        return false;
+    }
+    if (out.port > 8) return false;
+    return true;
+}
+
+// Commit current hardware intent to flash. `port` 0..8, `attDb` < 0 disables.
+void savePersistentState(int port, float attDb) {
+    PersistentState s;
+    s.magic = STATE_MAGIC;
+    s.version = STATE_VERSION;
+    s.port = (uint8_t)constrain(port, 0, 8);
+    s.attX10 = (attDb < 0) ? 0xFFFF : (uint16_t)lroundf(attDb * 10.0f);
+    s.reserved[0] = 0;
+    s.reserved[1] = 0;
+
+    if (memcmp(&s, &savedState, STATE_SIZE) == 0) return;  // no change, skip write
+    savedState = s;
+
+    uint8_t buf[STATE_SIZE];
+    memcpy(buf, &s, STATE_SIZE);
+    for (int i = 0; i < STATE_SIZE; i++) EEPROM.write(STATE_ADDR + i, buf[i]);
+    EEPROM.commit();
+    Serial.printf("[state] saved port=%d att=%.1f\r\n", port, attDb);
+}
+
+// Apply a saved state to the hardware: select port and set attenuator.
+int currentActivePort() { return savedState.port; }
+float currentActiveAttDb() {
+    return (savedState.attX10 == 0xFFFF) ? -1.0f : savedState.attX10 / 10.0f;
+}
+
+static void applyPersistentState(const PersistentState &s) {
+    allPortsOff();
+    attenuatorDisable();
+    if (s.port >= 1 && s.port <= 8) portOn(s.port);
+    if (s.attX10 != 0xFFFF) attenuatorSet(s.attX10 / 10.0f);
+    Serial.printf("[state] restored port=%d att=%s\r\n",
+                  s.port,
+                  s.attX10 == 0xFFFF ? "off" : String(s.attX10 / 10.0f, 1).c_str());
+}
+
+// ============================================================
 // Packet handling
 // ============================================================
 
@@ -340,6 +411,7 @@ static void handleSwitchRequest(const char *payload) {
 
     allPortsOff();
 
+    float attOnDac = -1.0f;
     if (setatt == 0.0f) {
         attenuatorDisable();
     } else {
@@ -347,11 +419,13 @@ static void handleSwitchRequest(const char *payload) {
         setatt -= 1.5f;
         if (setatt < 0.0f) setatt = 0.0f;
         attenuatorSet(setatt);
+        attOnDac = setatt;
     }
 
     int activePort = -1;
     if (setport == 0) {
         attenuatorDisable();
+        attOnDac = -1.0f;
         activePort = 0;
     } else if (setport >= 1 && setport <= 8) {
         portOn(setport);
@@ -366,6 +440,8 @@ static void handleSwitchRequest(const char *payload) {
         purple(buf);
         activePort = config.defaultPort;
     }
+
+    savePersistentState(activePort, attOnDac);
 
     char ack[64];
     snprintf(ack, sizeof(ack), "ACK:%s/%d/%.1f",
@@ -623,13 +699,23 @@ void setup() {
                   config.name.c_str(), config.defaultPort,
                   config.loraFrequency, config.txPower);
 
-    // --- Default port --------------------------------------------
-    allPortsOff();
-    if (config.defaultPort >= 1 && config.defaultPort <= 8) {
-        portOn(config.defaultPort);
-        Serial.printf("[boot] default port %d active\r\n", config.defaultPort);
+    // --- Persistent state (last port + attenuator) ---------------
+    // Falls back to `default_port` only if no valid state exists yet.
+    EEPROM.begin(STATE_SIZE);
+    PersistentState restored;
+    if (loadPersistentState(restored)) {
+        savedState = restored;   // remember, so saveState() can skip dup writes
+        applyPersistentState(restored);
     } else {
-        Serial.println("[boot] all ports off");
+        Serial.println("[boot] no saved state - applying default_port");
+        allPortsOff();
+        if (config.defaultPort >= 1 && config.defaultPort <= 8) {
+            portOn(config.defaultPort);
+            Serial.printf("[boot] default port %d active\r\n", config.defaultPort);
+        } else {
+            Serial.println("[boot] all ports off");
+        }
+        savePersistentState(config.defaultPort, -1.0f);
     }
 
     // --- LoRa ----------------------------------------------------
