@@ -390,13 +390,18 @@ static void handleSwitchRequest(const char *payload) {
         attStr[1] = '\0';
     }
 
-    int setport = atoi(portStr);
-    float setatt = roundToHalf(atof(attStr));
+    // Status query: any '?' in port or att field = "don't change, just ACK".
+    bool isQuery = (strchr(portStart, '?') != NULL);
 
     char buf[160];
-    snprintf(buf, sizeof(buf),
-             "PORT REQ: Name: %s Port: %d Attenuator: %.1f",
-             name, setport, setatt);
+    if (isQuery) {
+        snprintf(buf, sizeof(buf),
+                 "QUERY REQ: Name: %s (port/att = ?)", name);
+    } else {
+        snprintf(buf, sizeof(buf),
+                 "PORT REQ: Name: %s Port: %s Attenuator: %s",
+                 name, portStr, attStr);
+    }
     purple(buf);
 
     if (strcmp(name, config.name.c_str()) != 0) {
@@ -407,45 +412,56 @@ static void handleSwitchRequest(const char *payload) {
         yellow(buf);
         return;
     }
-    Serial.printf("[switch] name match '%s' - will ACK after apply\r\n", name);
+    Serial.printf("[switch] name match '%s'\r\n", name);
 
-    allPortsOff();
-
-    float attOnDac = -1.0f;
-    if (setatt == 0.0f) {
-        attenuatorDisable();
+    int activePort;
+    float attOnDac;
+    if (isQuery) {
+        // Report current state, don't change anything.
+        activePort = currentActivePort();
+        attOnDac   = currentActiveAttDb();
     } else {
-        if (setatt > 33.0f) setatt = 33.0f;
-        setatt -= 1.5f;
-        if (setatt < 0.0f) setatt = 0.0f;
-        attenuatorSet(setatt);
-        attOnDac = setatt;
-    }
+        int setport = atoi(portStr);
+        float setatt = roundToHalf(atof(attStr));
 
-    int activePort = -1;
-    if (setport == 0) {
-        attenuatorDisable();
+        // Attenuator: 0 = bypass (no attenuation); otherwise the value is the
+        // DAC attenuation in dB, 0.5 .. 31.5 in 0.5 dB steps.
         attOnDac = -1.0f;
-        activePort = 0;
-    } else if (setport >= 1 && setport <= 8) {
-        portOn(setport);
-        snprintf(buf, sizeof(buf), "PORT REQ: Turned port %d on", setport);
-        purple(buf);
-        activePort = setport;
-    } else {
-        portOn(config.defaultPort);
-        snprintf(buf, sizeof(buf),
-                 "PORT REQ: Wrong Port NR Turned default port %d on",
-                 config.defaultPort);
-        purple(buf);
-        activePort = config.defaultPort;
+        if (setatt == 0.0f) {
+            attenuatorDisable();
+        } else {
+            if (setatt < 0.5f) setatt = 0.5f;
+            if (setatt > 31.5f) setatt = 31.5f;
+            attenuatorSet(setatt);
+            attOnDac = setatt;
+        }
+
+        allPortsOff();
+        if (setport == 0) {
+            attenuatorDisable();
+            attOnDac = -1.0f;
+            activePort = 0;
+        } else if (setport >= 1 && setport <= 8) {
+            portOn(setport);
+            snprintf(buf, sizeof(buf), "PORT REQ: Turned port %d on", setport);
+            purple(buf);
+            activePort = setport;
+        } else {
+            portOn(config.defaultPort);
+            snprintf(buf, sizeof(buf),
+                     "PORT REQ: Wrong Port NR Turned default port %d on",
+                     config.defaultPort);
+            purple(buf);
+            activePort = config.defaultPort;
+        }
+
+        savePersistentState(activePort, attOnDac);
     }
 
-    savePersistentState(activePort, attOnDac);
-
+    float displayAtt = (attOnDac < 0.0f) ? 0.0f : attOnDac;
     char ack[64];
     snprintf(ack, sizeof(ack), "ACK:%s/%d/%.1f",
-             config.name.c_str(), activePort, setatt);
+             config.name.c_str(), activePort, displayAtt);
     sendAck(ack);
 }
 

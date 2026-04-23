@@ -79,17 +79,21 @@ name/port/att
 | Field | Type | Range | Meaning |
 |-------|------|-------|---------|
 | `name` | string | 1..15 chars | Target device name. Switch ignores commands addressed to any other name. |
-| `port` | integer | 0..8 | 1..8 = activate that RF port. 0 = all ports off. Values outside this range → fallback to `default_port`. |
-| `att`  | decimal | 0.0..33.0 | (optional) Requested attenuation in dB. Defaults to `0` (attenuator bypassed) when omitted. |
+| `port` | integer or `?` | 0..8 or `?` | 1..8 = activate that RF port. 0 = all ports off. `?` = status query. Values outside this range → fallback to `default_port`. |
+| `att`  | decimal or `?` | 0 or 0.5..31.5, or `?` | (optional) Attenuator setting. `0` = no attenuation (bypass). `0.5..31.5` in 0.5 dB steps = DAC value. Defaults to `0` when omitted. |
 
-The attenuator, when active, has a **~1.5 dB minimum insertion loss** baked into the board. The firmware subtracts 1.5 from the requested value before driving the DAC, so `att=1.5` → 0 dB extra, `att=31.5` → 30 dB extra. Requests above 33 dB are clamped to 33 dB (i.e. 31.5 dB on the DAC).
+### 3.3 Status query
 
-### 3.3 Examples
+If **either** the `port` field **or** the `att` field is the literal character `?`, the switch treats the packet as a **read-only status query**: the port and attenuator are not changed, and the ACK (see §4) carries the switch's current state. This lets a controller ask "what are you doing right now?" without disturbing the setup.
+
+### 3.4 Examples
 
 ```
-sw0/1          → activate RF port 1 on the switch named "sw0", attenuator off
-sw0/3/6.0      → activate RF port 3, attenuator at 6.0 dB
-sw0/0          → all ports off
+sw0/1          → activate RF port 1 on "sw0", attenuator bypassed
+sw0/3/6.0      → activate RF port 3, attenuator DAC = 6.0 dB
+sw0/0          → all ports off (also disables the attenuator)
+sw0/?/?        → status query, switch replies with its current state
+sw0/?          → same as above (att field defaulted)
 sw7/2/12.5     → (ignored unless config.name == "sw7")
 ```
 
@@ -108,9 +112,11 @@ ACK:<name>/<port>/<att>
 Where:
 - `name` — the switch's configured `name` (echo of what the controller addressed)
 - `port` — the port number actually activated (matches the request, or `default_port` on fallback, or `0` if all ports were turned off)
-- `att` — the attenuation that was applied, in dB, one decimal (`0.0`, `6.0`, `12.5`, …)
+- `att` — the attenuator DAC value that is currently set, in dB, one decimal. `0.0` means the attenuator is bypassed.
 
 Example: `ACK:sw0/3/6.0`
+
+Status queries (§3.3) use the **same** ACK format — just the `port` and `att` fields reflect the current state of the switch rather than the request that changed it.
 
 ### 4.2 Intentionally plaintext
 
@@ -186,4 +192,5 @@ Switch RX + ACK TX path:
 
 ## 8. Change Log
 
+- **v1.1** — attenuator field redefined as a direct DAC value (`0` = bypass, `0.5..31.5` = dB of attenuation). The 1.5 dB insertion-loss compensation previously applied by the firmware was removed; controllers now speak to the attenuator directly. Added status queries (`?` in either field).
 - **v1.0** — initial public protocol (AES-128 CBC, 3-byte header, `fast`/`slow` profiles, plaintext ACK).

@@ -110,14 +110,21 @@ Minimum on-air frame is 35 bytes (3 header + 16 IV + 16 ciphertext block).
 
 The switch has a **6-bit step attenuator** on the RF output, 0 – 31.5 dB in 0.5 dB steps (via `GP6 / GP5 / GP26 / GP27 / GP28 / GP29` driving the attenuator DAC, enabled by `GP25`).
 
-The attenuator has a fixed **~1.5 dB insertion loss** built into the signal path. The firmware compensates: your `att` value is the *total* attenuation you want (insertion loss + pad), and the DAC is driven accordingly.
+The `att` field is the direct DAC attenuation value:
 
-| Requested `att` | Result |
-|-----------------|--------|
-| `0`             | Attenuator **bypassed** (0 dB net, 1.5 dB insertion loss not applied) |
-| `1.5`           | 0 dB on the DAC → 1.5 dB total |
-| `6.0`           | 4.5 dB on the DAC → 6 dB total |
-| `33.0` and up   | Clamped to 33 (max DAC = 31.5 dB) |
+| Value        | Effect |
+|--------------|--------|
+| `0`          | Attenuator **bypassed** — no attenuation |
+| `0.5`        | 0.5 dB on the DAC |
+| `1.0`        | 1.0 dB on the DAC |
+| `0.5..31.5`  | Any 0.5 dB step in the DAC's range |
+| `31.5` and up | Clamped to `31.5` |
+
+The attenuator chip has its own fixed insertion loss (board-dependent, typically ~1.5 dB) — this is a property of the RF path, not the DAC setting, and is not included in the `att` number. Treat it as a systemic calibration offset.
+
+## 🔍 Status Query
+
+The controller can ask the switch "what are you currently set to?" without changing anything by putting a `?` in either the port or attenuator field: `sw0/?/?` (or just `sw0/?`). The switch replies with the same `ACK:<name>/<port>/<att>` format it uses after a normal command, but with its *current* state. Useful for controller displays and recovery after a missed ACK.
 
 ---
 
