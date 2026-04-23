@@ -1,0 +1,26 @@
+# ============================================================
+# RF.Guru 8-Port LoRa Switch Configuration
+# Edit this file and eject the USB drive to apply.
+# ============================================================
+
+# Device name - this switch listens for packets addressed to
+# this name from the controller.
+name: "sw0"
+
+# Default active port at boot (1-8, 0 = all off)
+default_port: 1
+
+# LoRa RX frequency in MHz
+lora_frequency: 868.000
+
+# LoRa TX power in dBm (2-23) - used for ACK transmission.
+# Lower = less RFI into USB / less range.
+tx_power: 2
+
+# LoRa modem profile (MUST match the transmitter):
+#   fast - SF7 / BW125k / CR4-5  (default, ~50ms airtime)
+#   slow - SF12 / BW125k / CR4-8 (+10dB range, ~1.3s airtime)
+lora_mode: "fast"
+
+# AES-128 CBC key as 32 hex chars (must match the transmitter)
+aes_key: "000102030405060708090a0b0c0d0e0f"
